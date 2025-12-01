@@ -15,8 +15,6 @@ function updateStudentProfile(studentID, newName, newEmail, newPassword, newTarg
   for (let i = 1; i < data.length; i++) {
     if (data[i][0] === studentID) {
       const row = i + 1;
-      
-      // Col 1: Name, Col 2: Email, Col 3: Password, Col 4: TargetGPA
       sheet.getRange(row, headers.indexOf("Name") + 1).setValue(newName);
       sheet.getRange(row, headers.indexOf("Email") + 1).setValue(newEmail);
       if (newPassword) sheet.getRange(row, headers.indexOf("Password") + 1).setValue(newPassword);
@@ -31,7 +29,7 @@ function updateStudentProfile(studentID, newName, newEmail, newPassword, newTarg
 // ===== Course CRUD =====
 function addCourse(studentID, semester, courseName, credits, grade) {
   const sheet = getSheet("Courses");
-  const rowID = Utilities.getUuid(); // Generate unique ID for editing/deleting
+  const rowID = Utilities.getUuid();
   sheet.appendRow([studentID, semester, courseName, Number(credits), grade, rowID]);
   return getStudentInfo(studentID);
 }
@@ -42,13 +40,12 @@ function updateCourse(studentID, rowID, semester, courseName, credits, grade) {
   const rowIDIndex = data[0].indexOf("RowID");
 
   for (let i = 1; i < data.length; i++) {
-    // Find the course by RowID and ensure it belongs to the student
     if (data[i][rowIDIndex] === rowID && data[i][0] === studentID) {
       const row = i + 1;
-      sheet.getRange(row, 2).setValue(semester); // Col 2: Semester
-      sheet.getRange(row, 3).setValue(courseName); // Col 3: CourseName
-      sheet.getRange(row, 4).setValue(Number(credits)); // Col 4: Credits
-      sheet.getRange(row, 5).setValue(grade); // Col 5: Grade
+      sheet.getRange(row, 2).setValue(semester);
+      sheet.getRange(row, 3).setValue(courseName);
+      sheet.getRange(row, 4).setValue(Number(credits));
+      sheet.getRange(row, 5).setValue(grade);
       return getStudentInfo(studentID);
     }
   }
@@ -61,7 +58,6 @@ function deleteCourse(studentID, rowID) {
   const rowIDIndex = data[0].indexOf("RowID");
 
   for (let i = 1; i < data.length; i++) {
-    // Find the course by RowID and ensure it belongs to the student
     if (data[i][rowIDIndex] === rowID && data[i][0] === studentID) {
       sheet.deleteRow(i + 1);
       return getStudentInfo(studentID);
@@ -70,7 +66,7 @@ function deleteCourse(studentID, rowID) {
   return { status: "error", msg: "Course not found or access denied." };
 }
 
-// ===== GPA & Metric Calculation =====
+// ===== GPA & Metric Calculation (Simplified for brevity, same logic as before) =====
 function calculateMetrics(studentID, targetGPA, totalRequiredCredits, allCourses) {
   let earnedCredits = 0;
   let totalQualityPoints = 0;
@@ -92,7 +88,6 @@ function calculateMetrics(studentID, targetGPA, totalRequiredCredits, allCourses
   const gpa = earnedCredits ? (totalQualityPoints / earnedCredits).toFixed(2) : 0;
   const remainingCredits = Math.max(0, totalRequiredCredits - earnedCredits);
 
-  // Required GPA prediction
   const requiredQualityPoints = (targetGPA * totalRequiredCredits) - (gpa * earnedCredits);
   let requiredGPA = 0;
 
@@ -143,7 +138,7 @@ function getOpportunities(){
   return data.map(r=>({ID:r[0],Title:r[1],Type:r[2],Description:r[3],Link:r[4]}));
 }
 
-// ===== Login/Logout/Web App =====
+// ===== Login/Logout/Web App Handlers =====
 function loginStudent(studentID, password) {
   const sheet = getSheet("Students");
   const data = sheet.getDataRange().getValues();
@@ -167,7 +162,7 @@ function registerStudent(studentID, name, email, password, targetGPA, totalRequi
 
 
 function doGet() { 
-  return HtmlService.createTemplateFromFile("Index").evaluate().setTitle("Student Portal"); 
+  return HtmlService.createTemplateFromFile("Index").evaluate().setTitle("University Student Portal"); 
 }
 
 function include(filename) { 
