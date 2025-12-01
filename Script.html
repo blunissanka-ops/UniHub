@@ -10,7 +10,7 @@ function gradeToPoint(grade){
   return map[grade]||0; 
 } 
 
-// ===== Auth Functions =====
+// ===== Auth Functions (No Change) =====
 function login(){
   const id=document.getElementById("loginID").value.trim();
   const pass=document.getElementById("loginPass").value.trim();
@@ -40,12 +40,12 @@ function logout(){
   document.getElementById("loginStatus").innerText="🚪 Logged out successfully.";
 }
 
-// ===== Dashboard & State Management (Fixed with setTimeout) =====
+// ===== Dashboard & State Management (FIXED DELAY) =====
 function showDashboard(data){
   const main=document.getElementById("mainContent");
   main.innerHTML=`<?!= include('Dashboard'); ?>`; 
   
-  // CRITICAL FIX: Use a 50ms delay to ensure the HTML elements are fully loaded
+  // FINAL FIX: Use a larger delay (100ms) to ensure the DOM is fully ready 
   setTimeout(() => {
     // 4. Personal Information
     document.getElementById("studentName").innerText=data.student.Name;
@@ -72,17 +72,15 @@ function showDashboard(data){
       drawGradeDistributionChart(data.gradeCounts);
     });
     
-    // 7. Alert for low GPA
+    // Optional console warning for low GPA
     if(parseFloat(data.gpa) < parseFloat(data.targetGPA)){
-      // alert('⚠️ Alert: Your current GPA (' + data.gpa + ') is below your target (' + data.targetGPA + ')!');
-      // Use console log for less disruptive alerts in modern dashboards
       console.warn('⚠️ Alert: Your current GPA (' + data.gpa + ') is below your target (' + data.targetGPA + ')!');
     }
 
-  }, 50); 
+  }, 100); // <-- Increased delay
 }
 
-// ===== Charting Functions =====
+// ===== Charting Functions (No Change) =====
 function drawGpaTrendChart(courses){
   const chartDiv = document.getElementById('chart_gpa_trend');
   if(!courses.length) {
@@ -109,7 +107,6 @@ function drawGpaTrendChart(courses){
       rows.push([s, sems[s].points/sems[s].credits]);
     }
   }
-  // Sort by semester name/number before drawing
   rows.sort((a, b) => a[0].localeCompare(b[0], undefined, {numeric: true, sensitivity: 'base'}));
   data.addRows(rows);
 
@@ -152,13 +149,12 @@ function drawGradeDistributionChart(gradeCounts){
   chart.draw(data,options);
 }
 
-// ===== 2. Course Management Functions =====
+// ===== Course Management Functions (No Change) =====
 function loadCourses(editRowID = null, courseData = {}){
   const student = currentStudent.student;
   const courses = currentStudent.courses;
   const isEdit = editRowID !== null;
 
-  // --- Course Form HTML ---
   const formTitle = isEdit ? '✏️ Edit Course' : '➕ Add New Course';
   const buttonText = isEdit ? 'Update Course' : 'Add Course';
   
@@ -185,7 +181,6 @@ function loadCourses(editRowID = null, courseData = {}){
   <hr style="margin: 20px 0;">
   `;
 
-  // --- Course List HTML ---
   let courseListHtml = '<h3>📜 Courses Enrolled</h3>';
   if (courses && courses.length > 0) {
     courseListHtml += '<table><thead><tr><th>Semester</th><th>Course Name</th><th>Credits</th><th>Grade</th><th>Actions</th></tr></thead><tbody>';
@@ -219,8 +214,8 @@ function addNewCourse(){
   
   google.script.run.withSuccessHandler(res=>{
     currentStudent=res;
-    showDashboard(res); // Update dashboard metrics and chart
-    loadCourses(); // Reloads course list 
+    showDashboard(res); 
+    loadCourses(); 
     document.getElementById("courseStatus").innerText="✅ Course added successfully!";
   }).addCourse(currentStudent.student.StudentID,sem,name,credits,grade);
 }
@@ -262,7 +257,7 @@ function deleteSelectedCourse(rowID){
     }).deleteCourse(currentStudent.student.StudentID, rowID);
 }
 
-// ===== 3. Opportunities & Resources =====
+// ===== Other Loaders (No Change) =====
 function loadOpportunities(){
   document.getElementById("dynamicContent").innerHTML = "<h3>⏳ Loading Opportunities...</h3>";
 
@@ -287,7 +282,6 @@ function loadOpportunities(){
   }).getOpportunities();
 }
 
-// ===== 4. Profile Update (Modal-like) =====
 function loadProfileUpdate() {
   const student = currentStudent.student;
   const html = `
@@ -323,7 +317,6 @@ function saveProfileUpdate() {
   }).updateStudentProfile(studentID, name, email, password, targetGPA);
 }
 
-// ===== 5. Reports & Downloads (Simulated) =====
 function loadReports() {
   const html = `
     <h3>📄 Reports & Downloads</h3>
@@ -342,7 +335,6 @@ function simulateDownload(filename) {
   document.getElementById("reportStatus").innerText = `✅ Generating and downloading ${filename}... (Simulated)`;
 }
 
-// ===== 7. Quick Actions/Other Utilities (Simulated) =====
 function loadContactAdvisor() {
   const html = `
     <h3>💬 Contact Advisor / Support</h3>
