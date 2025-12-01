@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <?!= include('Style'); ?>
+  </head>
+  <body>
+    <h1>University Student Portal</h1>
+    <div id="mainContent">
+      <?!= include('Login'); ?>
+    </div>
+    <?!= include('Script'); ?>
+  </body>
+</html>

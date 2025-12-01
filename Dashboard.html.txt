@@ -1,0 +1,65 @@
+<div class="dashboard-grid">
+  <div class="card profile-card">
+    <div class="avatar-container">
+      <span style="font-size: 50px;">🧑‍🎓</span> 
+    </div>
+    <h3 id="studentName"></h3>
+    <p>ID: <span id="studentID"></span></p>
+    <p>Email: <span id="studentEmail"></span></p>
+    
+    <div class="quick-actions">
+      <button onclick="loadProfileUpdate()">👤 Edit Profile</button>
+      <button onclick="loadOpportunities()">✨ Opportunities</button>
+      <button onclick="loadContactAdvisor()">💬 Contact Advisor</button>
+      <button onclick="logout()" style="background: #dc3545;">🚪 Logout</button>
+    </div>
+  </div>
+
+  <div class="card academic-summary-card">
+    <h3>Academic Overview</h3>
+    <div class="metric-grid">
+      <div class="metric-card primary">
+        <h4>Current GPA</h4>
+        <p id="gpa"></p>
+      </div>
+      <div class="metric-card success">
+        <h4>Target GPA</h4>
+        <p id="targetGPA"></p>
+      </div>
+      <div class="metric-card warning">
+        <h4>Required GPA</h4>
+        <p id="requiredGPA"></p>
+      </div>
+    </div>
+
+    <div class="credit-progress">
+      <h4>Credits Completed (<span id="earnedCredits"></span>/<span id="totalCredits"></span>)</h4>
+      <div class="progress-bar-container">
+        <div id="creditProgressBar" class="progress-bar"></div>
+      </div>
+      <p style="font-size: 0.9em; margin-top: 5px;">Remaining: <span id="remainingCredits"></span></p>
+    </div>
+  </div>
+
+  <div class="card full-width chart-container">
+    <div class="chart-group">
+      <div id="chart_gpa_trend">
+        <h4>GPA Trend Over Semesters</h4>
+        </div>
+      <div id="chart_grade_distribution">
+        <h4>Grade Distribution</h4>
+        </div>
+    </div>
+  </div>
+
+  <div class="card full-width dynamic-content-card">
+    <div class="dynamic-controls">
+      <button onclick="loadCourses()">📝 Add/View Courses</button>
+      <button onclick="loadReports()">📄 Reports & Downloads</button>
+    </div>
+    <div id="dynamicContent">
+      <p style="text-align: center; color: var(--secondary-color); margin-top: 20px;">Select an option above to manage courses or download reports.</p>
+    </div>
+  </div>
+
+</div>

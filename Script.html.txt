@@ -1,0 +1,356 @@
+<script src="https://www.gstatic.com/charts/loader.js"></script>
+<script>
+google.charts.load('current',{packages:['corechart']});
+
+let currentStudent = null;
+
+// Helper function from Code.gs
+function gradeToPoint(grade){ 
+  const map={"A":4,"B+":3.5,"B":3,"C+":2.5,"C":2,"D":1.5,"F":0}; 
+  return map[grade]||0; 
+} 
+
+// ===== Auth Functions =====
+function login(){
+  const id=document.getElementById("loginID").value.trim();
+  const pass=document.getElementById("loginPass").value.trim();
+  document.getElementById("loginStatus").innerText="Logging in...";
+  google.script.run.withSuccessHandler(res=>{
+    if(res.status==="success"){
+      currentStudent=res;
+      showDashboard(res);
+    } else {
+      document.getElementById("loginStatus").innerText=res.msg;
+    }
+  }).loginStudent(id,pass);
+}
+
+function register(){
+  const id=regID.value.trim(),name=regName.value.trim(),email=regEmail.value.trim(),
+        pass=regPass.value.trim(),target=regTarget.value.trim(), totalCredits=regTotalCredits.value.trim() || 120;
+  regStatus.innerText="Registering...";
+  google.script.run.withSuccessHandler(res=>{ 
+    regStatus.innerText=res.msg; 
+  }).registerStudent(id,name,email,pass,target, totalCredits);
+}
+
+function logout(){
+  currentStudent=null;
+  document.getElementById("mainContent").innerHTML=`<?!= include('Login'); ?>`;
+  document.getElementById("loginStatus").innerText="🚪 Logged out successfully.";
+}
+
+// ===== Dashboard & State Management (Fixed with setTimeout) =====
+function showDashboard(data){
+  const main=document.getElementById("mainContent");
+  main.innerHTML=`<?!= include('Dashboard'); ?>`; 
+  
+  // CRITICAL FIX: Use a 50ms delay to ensure the HTML elements are fully loaded
+  setTimeout(() => {
+    // 4. Personal Information
+    document.getElementById("studentName").innerText=data.student.Name;
+    document.getElementById("studentID").innerText=data.student.StudentID;
+    document.getElementById("studentEmail").innerText=data.student.Email;
+
+    // 1. Academic Overview
+    document.getElementById("gpa").innerText=data.gpa;
+    document.getElementById("targetGPA").innerText=data.targetGPA;
+    document.getElementById("requiredGPA").innerText=data.requiredGPA;
+    document.getElementById("earnedCredits").innerText=data.earnedCredits;
+    document.getElementById("totalCredits").innerText=data.totalRequiredCredits;
+    document.getElementById("remainingCredits").innerText=data.remainingCredits;
+
+    // 6. Progress Bar
+    const percent = Math.min(100, (data.earnedCredits / data.totalRequiredCredits) * 100);
+    const progressBar = document.getElementById("creditProgressBar");
+    progressBar.style.width = percent.toFixed(0) + '%';
+    progressBar.innerText = percent.toFixed(0) + '%';
+    
+    // 6. Interactive Widgets (Charts)
+    google.charts.setOnLoadCallback(() => {
+      drawGpaTrendChart(data.courses);
+      drawGradeDistributionChart(data.gradeCounts);
+    });
+    
+    // 7. Alert for low GPA
+    if(parseFloat(data.gpa) < parseFloat(data.targetGPA)){
+      // alert('⚠️ Alert: Your current GPA (' + data.gpa + ') is below your target (' + data.targetGPA + ')!');
+      // Use console log for less disruptive alerts in modern dashboards
+      console.warn('⚠️ Alert: Your current GPA (' + data.gpa + ') is below your target (' + data.targetGPA + ')!');
+    }
+
+  }, 50); 
+}
+
+// ===== Charting Functions =====
+function drawGpaTrendChart(courses){
+  const chartDiv = document.getElementById('chart_gpa_trend');
+  if(!courses.length) {
+    chartDiv.innerHTML = "<h4>GPA Trend Over Semesters</h4><p style='text-align:center;'>No courses added.</p>";
+    return;
+  }
+  
+  const data=new google.visualization.DataTable();
+  data.addColumn('string','Semester');
+  data.addColumn('number','GPA');
+  
+  const sems={};
+  courses.forEach(c=>{
+    if (c.Credits > 0) { 
+        if(!sems[c.Semester]) sems[c.Semester]={points:0,credits:0};
+        sems[c.Semester].points+=gradeToPoint(c.Grade)*c.Credits;
+        sems[c.Semester].credits+=c.Credits;
+    }
+  });
+  
+  const rows = [];
+  for(let s in sems) {
+    if (sems[s].credits > 0) {
+      rows.push([s, sems[s].points/sems[s].credits]);
+    }
+  }
+  // Sort by semester name/number before drawing
+  rows.sort((a, b) => a[0].localeCompare(b[0], undefined, {numeric: true, sensitivity: 'base'}));
+  data.addRows(rows);
+
+  const options={
+    title:'GPA Trend Over Semesters',
+    curveType:'function',
+    legend:{position:'bottom'},
+    colors:['var(--primary-color)'],
+    vAxis: {title: 'GPA', viewWindow: {min: 0, max: 4.0}}
+  };
+  
+  const chart=new google.visualization.LineChart(chartDiv);
+  chart.draw(data,options);
+}
+
+function drawGradeDistributionChart(gradeCounts){
+  const chartDiv = document.getElementById('chart_grade_distribution');
+  const data=new google.visualization.DataTable();
+  data.addColumn('string','Grade');
+  data.addColumn('number','Count');
+  
+  let totalCourses = 0;
+  for (const grade in gradeCounts) {
+    data.addRow([grade, gradeCounts[grade]]);
+    totalCourses += gradeCounts[grade];
+  }
+
+  if (totalCourses === 0) {
+    chartDiv.innerHTML = "<h4>Grade Distribution</h4><p style='text-align:center;'>No grades recorded.</p>";
+    return;
+  }
+
+  const options={
+    title:'Grade Distribution',
+    pieHole: 0.4,
+    colors: ['#28a745', '#007bff', '#ffc107', '#6c757d']
+  };
+  
+  const chart=new google.visualization.PieChart(chartDiv);
+  chart.draw(data,options);
+}
+
+// ===== 2. Course Management Functions =====
+function loadCourses(editRowID = null, courseData = {}){
+  const student = currentStudent.student;
+  const courses = currentStudent.courses;
+  const isEdit = editRowID !== null;
+
+  // --- Course Form HTML ---
+  const formTitle = isEdit ? '✏️ Edit Course' : '➕ Add New Course';
+  const buttonText = isEdit ? 'Update Course' : 'Add Course';
+  
+  let addCourseHtml=`
+  <h3>${formTitle}</h3>
+  <div class="add-course-form">
+    <input id="courseSem" placeholder="Semester" value="${isEdit ? courseData.Semester : ''}">
+    <input id="courseName" placeholder="Course Name" value="${isEdit ? courseData.CourseName : ''}">
+    <input id="courseCredits" placeholder="Credits" type="number" min="0" value="${isEdit ? courseData.Credits : ''}">
+    <select id="courseGrade">
+      <option value="" disabled ${!isEdit ? 'selected' : ''}>Select Grade</option>
+      <option value="A" ${isEdit && courseData.Grade === 'A' ? 'selected' : ''}>A (4.0)</option>
+      <option value="B+" ${isEdit && courseData.Grade === 'B+' ? 'selected' : ''}>B+ (3.5)</option>
+      <option value="B" ${isEdit && courseData.Grade === 'B' ? 'selected' : ''}>B (3.0)</option>
+      <option value="C+" ${isEdit && courseData.Grade === 'C+' ? 'selected' : ''}>C+ (2.5)</option>
+      <option value="C" ${isEdit && courseData.Grade === 'C' ? 'selected' : ''}>C (2.0)</option>
+      <option value="D" ${isEdit && courseData.Grade === 'D' ? 'selected' : ''}>D (1.5)</option>
+      <option value="F" ${isEdit && courseData.Grade === 'F' ? 'selected' : ''}>F (0.0)</option>
+    </select>
+    <button onclick="${isEdit ? "saveEditCourse('" + editRowID + "')" : "addNewCourse()"}" style="width: auto;">${buttonText}</button>
+    ${isEdit ? '<button onclick="loadCourses()" style="background: var(--secondary-color); width: auto;">Cancel Edit</button>' : ''}
+  </div>
+  <p id="courseStatus" style="margin-top: 15px;"></p>
+  <hr style="margin: 20px 0;">
+  `;
+
+  // --- Course List HTML ---
+  let courseListHtml = '<h3>📜 Courses Enrolled</h3>';
+  if (courses && courses.length > 0) {
+    courseListHtml += '<table><thead><tr><th>Semester</th><th>Course Name</th><th>Credits</th><th>Grade</th><th>Actions</th></tr></thead><tbody>';
+    courses.forEach(c => {
+      courseListHtml += `<tr>
+        <td>${c.Semester}</td>
+        <td>${c.CourseName}</td>
+        <td>${c.Credits}</td>
+        <td>${c.Grade}</td>
+        <td class="course-controls">
+          <button onclick="editCourse('${c.RowID}')" style="background: #ffc107;">Edit</button>
+          <button onclick="deleteSelectedCourse('${c.RowID}')" style="background: #dc3545;">Delete</button>
+        </td>
+      </tr>`;
+    });
+    courseListHtml += '</tbody></table>';
+  } else {
+    courseListHtml += '<p style="text-align: center;">No courses added yet.</p>';
+  }
+  
+  document.getElementById("dynamicContent").innerHTML = addCourseHtml + courseListHtml;
+}
+
+function addNewCourse(){
+  const sem=courseSem.value,name=courseName.value,credits=courseCredits.value,grade=courseGrade.value;
+  if(!sem || !name || !credits || !grade) {
+    document.getElementById("courseStatus").innerText="🔴 Please fill all fields.";
+    return;
+  }
+  document.getElementById("courseStatus").innerText="⏳ Adding course...";
+  
+  google.script.run.withSuccessHandler(res=>{
+    currentStudent=res;
+    showDashboard(res); // Update dashboard metrics and chart
+    loadCourses(); // Reloads course list 
+    document.getElementById("courseStatus").innerText="✅ Course added successfully!";
+  }).addCourse(currentStudent.student.StudentID,sem,name,credits,grade);
+}
+
+function editCourse(rowID) {
+    const course = currentStudent.courses.find(c => c.RowID === rowID);
+    if (course) {
+        loadCourses(rowID, course);
+    } else {
+        alert("Error: Course not found for editing.");
+    }
+}
+
+function saveEditCourse(rowID){
+  const sem=courseSem.value,name=courseName.value,credits=courseCredits.value,grade=courseGrade.value;
+  if(!sem || !name || !credits || !grade) {
+    document.getElementById("courseStatus").innerText="🔴 Please fill all fields.";
+    return;
+  }
+  document.getElementById("courseStatus").innerText="⏳ Updating course...";
+  
+  google.script.run.withSuccessHandler(res=>{
+    currentStudent=res;
+    showDashboard(res);
+    loadCourses(); 
+    document.getElementById("courseStatus").innerText="✅ Course updated successfully!";
+  }).updateCourse(currentStudent.student.StudentID, rowID, sem, name, credits, grade);
+}
+
+function deleteSelectedCourse(rowID){
+    if (!confirm("Are you sure you want to delete this course? This action cannot be undone.")) return;
+    document.getElementById("courseStatus").innerText="⏳ Deleting course...";
+
+    google.script.run.withSuccessHandler(res => {
+        currentStudent = res;
+        showDashboard(res);
+        loadCourses(); 
+        document.getElementById("courseStatus").innerText = "❌ Course deleted successfully!";
+    }).deleteCourse(currentStudent.student.StudentID, rowID);
+}
+
+// ===== 3. Opportunities & Resources =====
+function loadOpportunities(){
+  document.getElementById("dynamicContent").innerHTML = "<h3>⏳ Loading Opportunities...</h3>";
+
+  google.script.run.withSuccessHandler(data=>{
+    let html="<h3>✨ Available Opportunities & Resources</h3>";
+    html += "<h4>University Events (Simulated)</h4><p>Next Seminar: Web Security, Dec 15th | <a href='#' target='_blank'>Register</a></p>";
+    html += "<h4>Academic Resources</h4><ul><li><a href='https://library.google.com/' target='_blank'>Digital Library Access</a></li><li><a href='https://classroom.google.com/' target='_blank'>Learning Platform Link</a></li></ul>";
+    html+="<hr><h4>Scholarships / Internships / Job Listings</h4>";
+
+    if (data.length === 0) {
+      html += "<p>No opportunities are currently posted.</p>";
+    } else {
+      data.forEach(o=>{
+        html+=`<div class="opportunity-item">
+        <h4>${o.Title} <span style="float:right; color:var(--secondary-color); font-weight: normal; font-size: 0.9em;">(${o.Type})</span></h4>
+        <p>${o.Description}</p>
+        <a href="${o.Link}" target="_blank">View Details &rarr;</a>
+        </div>`;
+      });
+    }
+    document.getElementById("dynamicContent").innerHTML=html;
+  }).getOpportunities();
+}
+
+// ===== 4. Profile Update (Modal-like) =====
+function loadProfileUpdate() {
+  const student = currentStudent.student;
+  const html = `
+    <h3>👤 Update Profile</h3>
+    <input id="updateName" placeholder="Name" value="${student.Name}">
+    <input id="updateEmail" placeholder="Email" value="${student.Email}">
+    <input id="updateTargetGPA" placeholder="Target GPA" value="${student.TargetGPA}">
+    <input id="updatePassword" type="password" placeholder="New Password (Leave blank to keep current)">
+    <button onclick="saveProfileUpdate()">Save Changes</button>
+    <button onclick="showDashboard(currentStudent)" style="background: var(--secondary-color);">Cancel</button>
+    <p id="profileStatus" style="margin-top: 15px;"></p>
+  `;
+  document.getElementById("dynamicContent").innerHTML = html;
+}
+
+function saveProfileUpdate() {
+  const studentID = currentStudent.student.StudentID;
+  const name = document.getElementById("updateName").value;
+  const email = document.getElementById("updateEmail").value;
+  const targetGPA = document.getElementById("updateTargetGPA").value;
+  const password = document.getElementById("updatePassword").value; 
+  
+  document.getElementById("profileStatus").innerText="⏳ Saving profile...";
+
+  google.script.run.withSuccessHandler(res => {
+    if (res.status === "success") {
+      currentStudent = res;
+      showDashboard(res);
+      document.getElementById("profileStatus").innerText = "✅ Profile updated successfully!";
+    } else {
+      document.getElementById("profileStatus").innerText = "🔴 Error: " + res.msg;
+    }
+  }).updateStudentProfile(studentID, name, email, password, targetGPA);
+}
+
+// ===== 5. Reports & Downloads (Simulated) =====
+function loadReports() {
+  const html = `
+    <h3>📄 Reports & Downloads</h3>
+    <p>Use these buttons to simulate report generation and download. In a real application, the server-side script would generate the file content.</p>
+    <div style="display: flex; gap: 10px; margin-top: 20px;">
+      <button onclick="simulateDownload('GPA_Report.pdf')" style="background: #3498db;">Export GPA Report (PDF)</button>
+      <button onclick="simulateDownload('Course_History.xlsx')" style="background: #27ae60;">Download Course History (Excel)</button>
+      <button onclick="simulateDownload('Progress_Report.pdf')" style="background: #8e44ad;">Generate Progress Report</button>
+    </div>
+    <p id="reportStatus" style="margin-top: 15px;"></p>
+  `;
+  document.getElementById("dynamicContent").innerHTML = html;
+}
+
+function simulateDownload(filename) {
+  document.getElementById("reportStatus").innerText = `✅ Generating and downloading ${filename}... (Simulated)`;
+}
+
+// ===== 7. Quick Actions/Other Utilities (Simulated) =====
+function loadContactAdvisor() {
+  const html = `
+    <h3>💬 Contact Advisor / Support</h3>
+    <p>This widget simulates a helpdesk or direct contact form.</p>
+    <textarea rows="5" placeholder="Enter your query or message to your academic advisor..."></textarea>
+    <button>Submit Support Request</button>
+    <button onclick="showDashboard(currentStudent)" style="background: var(--secondary-color);">Back to Dashboard</button>
+  `;
+  document.getElementById("dynamicContent").innerHTML = html;
+}
+</script>

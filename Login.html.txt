@@ -1,0 +1,17 @@
+<div class="card login-card">
+  <h2>Login</h2>
+  <input id="loginID" placeholder="Student ID">
+  <input id="loginPass" placeholder="Password" type="password">
+  <button onclick="login()">Login</button>
+  <p id="loginStatus"></p>
+  <hr>
+  <h3>Register</h3>
+  <input id="regID" placeholder="Student ID">
+  <input id="regName" placeholder="Name">
+  <input id="regEmail" placeholder="Email">
+  <input id="regPass" placeholder="Password" type="password">
+  <input id="regTarget" placeholder="Target GPA (e.g., 3.7)">
+  <input id="regTotalCredits" placeholder="Total Req. Credits (e.g., 120)">
+  <button onclick="register()">Register</button>
+  <p id="regStatus"></p>
+</div>
